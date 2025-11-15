@@ -1,7 +1,11 @@
 Feature: WebdriverUniversity.com - Contact Us Page
-  Scenario Outline: : Valid Contact Us Form Submission
+
+  Background:
     Given I navigate to the webdriveruniversity homepage
     When I click on the contact us button
+
+  @Smoke
+  Scenario Outline: : Valid Contact Us Form Submission
     And I type a first name <firstName>
     And I type a last name <lastName>
     And I enter an email address '<emailAddress>'
@@ -15,9 +19,8 @@ Feature: WebdriverUniversity.com - Contact Us Page
       | Jane      | Doe      | janedoe@gmail.com      | I am Jane | Thank You for your Message! |
       | Bob       | Smith    | bobsmith@gmail.com     | I am Bob  | Thank You for your Message! |
 
+  @Faker @Smoke
   Scenario: Valid Contact Us Form Submission with Faker Library
-    Given I navigate to the webdriveruniversity homepage
-    When I click on the contact us button
     And I type a first name
     And I type a last name
     And I enter an email address
