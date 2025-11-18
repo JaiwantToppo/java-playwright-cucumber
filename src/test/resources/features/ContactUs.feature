@@ -1,29 +1,36 @@
-Feature: WebdriverUniversity.com - Contact Us Page
+Feature: OrangeHRM - Open source human resource management system
 
-  Background:
-    Given I navigate to the webdriveruniversity homepage
-    When I click on the contact us button
+  Background: Login to OrangeHRM
+    Given I navigate to the OrangeHRM Login page
+    And I enter username "Admin"
+    And I enter password "admin123"
+    And I click the Login button
+    Then I should be logged in successfully
 
   @Smoke
-  Scenario Outline: : Valid Contact Us Form Submission
-    And I type a first name <firstName>
-    And I type a last name <lastName>
-    And I enter an email address '<emailAddress>'
-    And I type a comment '<comment>'
-    And I click on the submit button
-    Then I should be presented with a successful contact us submission message '<message>'
+  Scenario Outline: Add candidate to Recruitment Page
+    When I navigate to section "Recruitment"
+    And I click the Add Candidate button
+    And I enter the candidate first name '<firstName>'
+    And I enter the candidate last name '<lastName>'
+    And I set the vacancy to '<vacancy>'
+    And I enter the candidate email address '<emailAddress>'
+    And I enter the candidate contact number '<contactNumber>'
+    And I set the date of application to '<dateOfApplication>'
+    And I enter the notes '<vacancy>'
+    And I click on the save button
 
     Examples:
-      | firstName | lastName | emailAddress           | comment   | message                     |
-      | John      | Williams | johnwilliams@gmail.com | I am John | Thank You for your Message! |
-      | Jane      | Doe      | janedoe@gmail.com      | I am Jane | Thank You for your Message! |
-      | Bob       | Smith    | bobsmith@gmail.com     | I am Bob  | Thank You for your Message! |
+      | firstName | lastName | vacancy                  | emailAddress           | contactNumber   | dateOfApplication |
+      | John      | Williams | Junior Account Assistant | johnwilliams@gmail.com | 24349732342     | 2024-06-15        |
+      | Jane      | Doe      | Sales Representative     | janedoe@gmail.com      | 23874676324     | 2024-06-16        |
+      | Bob       | Smith    | Senior QA Lead           | bobsmith@gmail.com     | 23784623876     | 2024-06-17        |
 
-  @Faker @Smoke
-  Scenario: Valid Contact Us Form Submission with Faker Library
-    And I type a first name
-    And I type a last name
-    And I enter an email address
-    And I type a comment
-    And I click on the submit button
-    Then I should be presented with a successful contact us submission message "Thank You for your Message!"
+#  @Faker @Smoke
+#  Scenario: Valid Contact Us Form Submission with Faker Library
+#    And I type a first name
+#    And I type a last name
+#    And I enter an email address
+#    And I type a comment
+#    And I click on the submit button
+#    Then I should be presented with a successful contact us submission message "Thank You for your Message!"

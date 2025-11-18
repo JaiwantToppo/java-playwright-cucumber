@@ -24,6 +24,16 @@ public class BasePage {
         browserManager.getPage().getByPlaceholder(placeholderName).fill(value);
     }
 
+    public void fillTextFieldWithGetByLabel(String labelName, String value) {
+        Locator parentLabel = browserManager.getPage().locator(".oxd-input-group:has(label:text-is('" + labelName + "'))");
+        Locator inputField = parentLabel.locator("input, textarea");
+        try {
+            inputField.fill(value);
+        } catch (Exception e) {
+            System.out.println("Error filling text field with label '" + labelName + "': " + e.getMessage());
+        }
+    }
+
     public void clickWithGetByRole(String roleType, String value) {
         browserManager.getPage().getByRole(AriaRole.valueOf(roleType.toUpperCase()), new Page.GetByRoleOptions().setName(value)).click();
     }
@@ -33,7 +43,17 @@ public class BasePage {
         return browserManager.getPage().locator(selector);
     }
 
-    public void navigateToPage(String roleType, String value) {
-        browserManager.setPage(browserManager.getBrowserContext().waitForPage(() -> clickWithGetByRole(roleType, value)));
+    public Locator textLocator(String text) {
+        return browserManager.getPage().getByText(text);
+    }
+
+    public void selectOptionFromDropdown(String dropdownSelector, String optionText) {
+        try {
+            textLocator(dropdownSelector).click();
+            browserManager.getPage().getByText(optionText).click();
+        } catch (Exception e) {
+            System.out.println("Error selecting option from dropdown: " + e.getMessage());
+        }
+
     }
 }
