@@ -1,0 +1,312 @@
+pipeline {
+    agent any
+
+    tools {
+        maven 'Maven-3.9.0'
+        jdk 'JDK-21'
+    }
+
+    parameters {
+        choice(
+            name: 'BROWSER',
+            choices: ['chromium', 'firefox', 'webkit'],
+            description: 'Select browser for test execution'
+        )
+        choice(
+            name: 'THREAD_COUNT',
+            choices: ['1', '2', '3', '4', '5', '6', '8', '10'],
+            description: 'Number of parallel threads for smoke tests'
+        )
+        booleanParam(
+            name: 'HEADLESS',
+            defaultValue: false,
+            description: 'Run tests in headless mode (recommended for CI)'
+        )
+        booleanParam(
+            name: 'SKIP_SETUP',
+            defaultValue: false,
+            description: 'Skip setup if auth files already exist'
+        )
+    }
+
+    environment {
+        BROWSER_TYPE = "${params.BROWSER}"
+        HEADLESS_MODE = "${params.HEADLESS}"
+        THREAD_COUNT = "${params.THREAD_COUNT}"
+        ALLURE_RESULTS = "${WORKSPACE}/target/allure-results"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '═══════════════════════════════════════════════════════'
+                echo '          CHECKING OUT SOURCE CODE                     '
+                echo '═══════════════════════════════════════════════════════'
+                checkout scm
+            }
+        }
+
+        stage('Environment Info') {
+            steps {
+                script {
+                    echo '═══════════════════════════════════════════════════════'
+                    echo '          BUILD CONFIGURATION                          '
+                    echo '═══════════════════════════════════════════════════════'
+                    echo "Browser: ${params.BROWSER}"
+                    echo "Headless Mode: ${params.HEADLESS}"
+                    echo "Thread Count: ${params.THREAD_COUNT}"
+                    echo "Skip Setup: ${params.SKIP_SETUP}"
+                    echo "Workspace: ${WORKSPACE}"
+                    echo '═══════════════════════════════════════════════════════'
+                }
+            }
+        }
+
+        stage('Clean') {
+            steps {
+                echo '🧹 Cleaning previous build artifacts...'
+                sh 'mvn clean'
+            }
+        }
+
+        stage('Setup Authentication') {
+            when {
+                expression { params.SKIP_SETUP == false }
+            }
+            steps {
+                script {
+                    echo '═══════════════════════════════════════════════════════'
+                    echo '          SETTING UP AUTHENTICATION                    '
+                    echo '═══════════════════════════════════════════════════════'
+                    echo "🔐 Running @Setup scenarios..."
+                    echo "Browser: ${params.BROWSER}"
+                    echo "Thread Count: 1 (setup always runs sequentially)"
+                    echo '═══════════════════════════════════════════════════════'
+
+                    // Always run setup with 1 thread and headless
+                    sh """
+                        mvn test -Psetup,headless \
+                                 -DBROWSER=${params.BROWSER} \
+                                 -Dheadless=false \
+                                 -Dthread.count=1
+                    """
+
+                    echo ''
+                    echo '═══════════════════════════════════════════════════════'
+                    echo '          VERIFYING AUTHENTICATION FILES               '
+                    echo '═══════════════════════════════════════════════════════'
+
+                    // Verify auth files were created
+                    def authFiles = [
+                        'src/test/test-output/storage-states/Admin-auth.json',
+                        'src/test/test-output/storage-states/Recruitment-auth.json'
+                    ]
+
+                    def allFilesExist = true
+                    authFiles.each { authFile ->
+                        if (fileExists(authFile)) {
+                            def fileSize = sh(script: "stat -f%z '${authFile}' 2>/dev/null || stat -c%s '${authFile}'", returnStdout: true).trim()
+                            echo "✅ ${authFile} (${fileSize} bytes)"
+                        } else {
+                            echo "❌ MISSING: ${authFile}"
+                            allFilesExist = false
+                        }
+                    }
+
+                    echo '═══════════════════════════════════════════════════════'
+
+                    if (!allFilesExist) {
+                        error "❌ Some authentication state files were not created!"
+                    } else {
+                        echo "✅ All authentication states saved successfully"
+                    }
+                }
+            }
+        }
+
+        stage('Check Existing Auth') {
+            when {
+                expression { params.SKIP_SETUP == true }
+            }
+            steps {
+                script {
+                    echo '═══════════════════════════════════════════════════════'
+                    echo '          CHECKING EXISTING AUTHENTICATION FILES       '
+                    echo '═══════════════════════════════════════════════════════'
+
+                    def authFiles = [
+                        'src/test/test-output/storage-states/Admin-auth.json',
+                        'src/test/test-output/storage-states/Recruitment-auth.json'
+                    ]
+
+                    def allFilesExist = true
+                    authFiles.each { authFile ->
+                        if (fileExists(authFile)) {
+                            echo "✅ Found: ${authFile}"
+                        } else {
+                            echo "❌ MISSING: ${authFile}"
+                            allFilesExist = false
+                        }
+                    }
+
+                    echo '═══════════════════════════════════════════════════════'
+
+                    if (!allFilesExist) {
+                        error "❌ Auth files not found! Uncheck 'SKIP_SETUP' to create them."
+                    }
+                }
+            }
+        }
+
+        stage('Run Smoke Tests') {
+            steps {
+                script {
+                    echo '═══════════════════════════════════════════════════════'
+                    echo '          RUNNING SMOKE TESTS                          '
+                    echo '═══════════════════════════════════════════════════════'
+                    echo "🧪 Executing @Smoke scenarios..."
+                    echo "Browser: ${params.BROWSER}"
+                    echo "Headless: ${params.HEADLESS}"
+                    echo "Threads: ${params.THREAD_COUNT}"
+                    echo '═══════════════════════════════════════════════════════'
+
+                    def headlessProfile = params.HEADLESS ? ',headless' : ''
+
+                    sh """
+                        mvn test -Psmoke${headlessProfile} \
+                                 -DBROWSER=${params.BROWSER} \
+                                 -Dheadless=${params.HEADLESS} \
+                                 -Dthread.count=${params.THREAD_COUNT}
+                    """
+                }
+            }
+        }
+
+        stage('Generate Allure Report') {
+            steps {
+                script {
+                    echo '═══════════════════════════════════════════════════════'
+                    echo '          GENERATING ALLURE REPORT                     '
+                    echo '═══════════════════════════════════════════════════════'
+
+                    allure([
+                        includeProperties: false,
+                        jdk: '',
+                        properties: [],
+                        reportBuildPolicy: 'ALWAYS',
+                        results: [[path: 'target/allure-results']]
+                    ])
+
+                    echo "✅ Allure report generated"
+                    echo "📊 View at: ${BUILD_URL}allure"
+                    echo '═══════════════════════════════════════════════════════'
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                echo '═══════════════════════════════════════════════════════'
+                echo '          ARCHIVING TEST ARTIFACTS                     '
+                echo '═══════════════════════════════════════════════════════'
+            }
+
+            // Archive Cucumber reports
+            archiveArtifacts artifacts: 'src/test/test-output/Report/**/*',
+                            allowEmptyArchive: true,
+                            fingerprint: true
+
+            // Archive screenshots
+            archiveArtifacts artifacts: 'src/test/test-output/Screenshots/**/*.png',
+                            allowEmptyArchive: true,
+                            fingerprint: true
+
+            // Archive videos
+            archiveArtifacts artifacts: 'src/test/test-output/Videos/**/*.webm',
+                            allowEmptyArchive: true,
+                            fingerprint: true
+
+            // Archive traces
+            archiveArtifacts artifacts: 'src/test/test-output/Traces/**/*.zip',
+                            allowEmptyArchive: true,
+                            fingerprint: true
+
+            // Archive authentication states (for debugging)
+            archiveArtifacts artifacts: 'src/test/test-output/storage-states/**/*.json',
+                            allowEmptyArchive: true,
+                            fingerprint: true
+
+            // Publish Allure Report
+            allure([
+                includeProperties: false,
+                jdk: '',
+                properties: [],
+                reportBuildPolicy: 'ALWAYS',
+                results: [[path: 'target/allure-results']]
+            ])
+
+            // Publish TestNG results
+            step([$class: 'Publisher', reportFilenamePattern: '**/testng-results.xml'])
+
+            script {
+                echo '═══════════════════════════════════════════════════════'
+                echo '          ARTIFACTS ARCHIVED SUCCESSFULLY              '
+                echo '═══════════════════════════════════════════════════════'
+                echo "📦 Cucumber Reports"
+                echo "📸 Screenshots"
+                echo "🎥 Videos"
+                echo "📎 Playwright Traces"
+                echo "🔐 Authentication States"
+                echo '═══════════════════════════════════════════════════════'
+            }
+        }
+
+        success {
+            script {
+                echo '═══════════════════════════════════════════════════════'
+                echo '          ✅ BUILD SUCCESSFUL ✅                        '
+                echo '═══════════════════════════════════════════════════════'
+                echo "Browser: ${params.BROWSER}"
+                echo "Threads: ${params.THREAD_COUNT}"
+                echo "Status: ALL TESTS PASSED"
+                echo ''
+                echo "📊 View Allure Report: ${BUILD_URL}allure"
+                echo "📦 View Artifacts: ${BUILD_URL}artifact"
+                echo '═══════════════════════════════════════════════════════'
+            }
+        }
+
+        failure {
+            script {
+                echo '═══════════════════════════════════════════════════════'
+                echo '          ❌ BUILD FAILED ❌                            '
+                echo '═══════════════════════════════════════════════════════'
+                echo "Browser: ${params.BROWSER}"
+                echo "Threads: ${params.THREAD_COUNT}"
+                echo "Status: SOME TESTS FAILED"
+                echo ''
+                echo "📊 Check Allure Report: ${BUILD_URL}allure"
+                echo "📸 Check Screenshots: ${BUILD_URL}artifact/src/test/test-output/Screenshots/"
+                echo "🎥 Check Videos: ${BUILD_URL}artifact/src/test/test-output/Videos/"
+                echo "📎 Check Traces: ${BUILD_URL}artifact/src/test/test-output/Traces/"
+                echo '═══════════════════════════════════════════════════════'
+            }
+        }
+
+        unstable {
+            script {
+                echo '═══════════════════════════════════════════════════════'
+                echo '          ⚠️ BUILD UNSTABLE ⚠️                         '
+                echo '═══════════════════════════════════════════════════════'
+                echo "Browser: ${params.BROWSER}"
+                echo "Threads: ${params.THREAD_COUNT}"
+                echo "Status: SOME TESTS FAILED"
+                echo ''
+                echo "📊 Review Allure Report: ${BUILD_URL}allure"
+                echo '═══════════════════════════════════════════════════════'
+            }
+        }
+    }
+}

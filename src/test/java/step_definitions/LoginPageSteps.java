@@ -5,6 +5,7 @@ import io.cucumber.java.en.And;
 import io.cucumber.java.en.Given;
 import io.cucumber.java.en.Then;
 import pages.LoginPage;
+import util.ConfigReader;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 
@@ -20,14 +21,14 @@ public class LoginPageSteps {
         loginPage.navigateToLoginPage();
     }
 
-    @And("I enter username {string}")
-    public void i_enter_username(String username) {
-        loginPage.fillTextFieldWithGetByPlaceholder("Username", username);
+    @And("I enter username")
+    public void i_enter_username() {
+        loginPage.fillTextFieldWithGetByPlaceholder("Username", ConfigReader.getProperty("test.username"));
     }
 
-    @And("I enter password {string}")
-    public void i_enter_password(String password) {
-        loginPage.fillTextFieldWithGetByPlaceholder("Password", password);
+    @And("I enter password")
+    public void i_enter_password() {
+        loginPage.fillTextFieldWithGetByPlaceholder("Password", ConfigReader.getProperty("test.password"));
     }
 
     @And("I click the Login button")
@@ -37,6 +38,15 @@ public class LoginPageSteps {
 
     @Then("I should be logged in successfully")
     public void i_should_be_logged_in_successfully() {
+        assertThat(loginPage.getDashboardLocator()).hasText("Dashboard");
+    }
+
+    @Given("I am on the dashboard")
+    public void i_am_on_the_dashboard() {
+        String baseUrl = ConfigReader.getProperty("URL");
+        String dashboardUrl = baseUrl.replace("/auth/login", "/dashboard/index");
+        loginPage.navigateToURL(dashboardUrl);
+
         assertThat(loginPage.getDashboardLocator()).hasText("Dashboard");
     }
 }
