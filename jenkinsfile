@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven'
-        jdk 'Java JDK'
+        maven 'Maven-3.9.0'
+        jdk 'JDK-21'
     }
 
     parameters {
@@ -65,7 +65,13 @@ pipeline {
         stage('Clean') {
             steps {
                 echo '🧹 Cleaning previous build artifacts...'
-                sh 'mvn clean'
+                script {
+                    if (isUnix()) {
+                        sh 'mvn clean'
+                    } else {
+                        bat 'mvn clean'
+                    }
+                }
             }
         }
 
@@ -84,12 +90,21 @@ pipeline {
                     echo '═══════════════════════════════════════════════════════'
 
                     // Always run setup with 1 thread and headless
-                    sh """
-                        mvn test -Psetup,headless \
-                                 -DBROWSER=${params.BROWSER} \
-                                 -Dheadless=false \
-                                 -Dthread.count=1
-                    """
+                    if (isUnix()) {
+                        sh """
+                            mvn test -Psetup,headless \
+                                     -DBROWSER=${params.BROWSER} \
+                                     -Dheadless=false \
+                                     -Dthread.count=1
+                        """
+                    } else {
+                        bat """
+                            mvn test -Psetup,headless ^
+                                     -DBROWSER=${params.BROWSER} ^
+                                     -Dheadless=false ^
+                                     -Dthread.count=1
+                        """
+                    }
 
                     echo ''
                     echo '═══════════════════════════════════════════════════════'
@@ -105,7 +120,7 @@ pipeline {
                     def allFilesExist = true
                     authFiles.each { authFile ->
                         if (fileExists(authFile)) {
-                            def fileSize = sh(script: "stat -f%z '${authFile}' 2>/dev/null || stat -c%s '${authFile}'", returnStdout: true).trim()
+                            def fileSize = new File("${WORKSPACE}/${authFile}").length()
                             echo "✅ ${authFile} (${fileSize} bytes)"
                         } else {
                             echo "❌ MISSING: ${authFile}"
@@ -172,12 +187,21 @@ pipeline {
 
                     def headlessProfile = params.HEADLESS ? ',headless' : ''
 
-                    sh """
-                        mvn test -Psmoke${headlessProfile} \
-                                 -DBROWSER=${params.BROWSER} \
-                                 -Dheadless=${params.HEADLESS} \
-                                 -Dthread.count=${params.THREAD_COUNT}
-                    """
+                    if (isUnix()) {
+                        sh """
+                            mvn test -Psmoke${headlessProfile} \
+                                     -DBROWSER=${params.BROWSER} \
+                                     -Dheadless=${params.HEADLESS} \
+                                     -Dthread.count=${params.THREAD_COUNT}
+                        """
+                    } else {
+                        bat """
+                            mvn test -Psmoke${headlessProfile} ^
+                                     -DBROWSER=${params.BROWSER} ^
+                                     -Dheadless=${params.HEADLESS} ^
+                                     -Dthread.count=${params.THREAD_COUNT}
+                        """
+                    }
                 }
             }
         }
@@ -246,9 +270,6 @@ pipeline {
                 reportBuildPolicy: 'ALWAYS',
                 results: [[path: 'target/allure-results']]
             ])
-
-            // Publish TestNG results
-            step([$class: 'Publisher', reportFilenamePattern: '**/testng-results.xml'])
 
             script {
                 echo '═══════════════════════════════════════════════════════'
