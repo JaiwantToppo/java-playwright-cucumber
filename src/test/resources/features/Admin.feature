@@ -1,4 +1,4 @@
-Feature: OrangeHRM - Open source human resource management system - Recruitment Module
+Feature: OrangeHRM - Open source human resource management system - Admin module
 
   # ==============================================================================
   # STEP 1: Run this scenario ONCE to save authentication state
