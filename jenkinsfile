@@ -89,7 +89,7 @@ pipeline {
                     echo "Thread Count: 1 (setup always runs sequentially)"
                     echo '═══════════════════════════════════════════════════════'
 
-                    // Always run setup with 1 thread and headless
+                    // Always run setup with 1 thread
                     if (isUnix()) {
                         sh """
                             mvn test -Psetup,headless \
@@ -120,8 +120,7 @@ pipeline {
                     def allFilesExist = true
                     authFiles.each { authFile ->
                         if (fileExists(authFile)) {
-                            def fileSize = new File("${WORKSPACE}/${authFile}").length()
-                            echo "✅ ${authFile} (${fileSize} bytes)"
+                            echo "✅ Found: ${authFile}"
                         } else {
                             echo "❌ MISSING: ${authFile}"
                             allFilesExist = false
