@@ -18,12 +18,12 @@ public class AdminPageSteps {
 
     @And("I set the user role to {string}")
     public void i_set_the_user_role_to(String userRole) {
-        adminPage.selectOptionFromDropdown("-- Select --", userRole);
+        adminPage.selectOptionFromDropdownByLabel("User Role", userRole);
     }
 
     @And("I set the status to {string}")
     public void i_set_the_status_to(String status) {
-        adminPage.selectOptionFromDropdown("-- Select --", status);
+        adminPage.selectOptionFromDropdownByLabel("Status", status);
     }
 
     @And("I enter the employee name {string}")

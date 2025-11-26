@@ -54,6 +54,15 @@ public class BasePage {
         } catch (Exception e) {
             System.out.println("Error selecting option from dropdown: " + e.getMessage());
         }
+    }
 
+    public void selectOptionFromDropdownByLabel(String labelName, String optionText) {
+        try {
+            Locator dropdownLabel = browserManager.getPage().locator(String.format("//label[text()='%s']/ancestor::div[contains(@class, 'oxd-input-group')]", labelName));
+            dropdownLabel.getByText("-- Select --").click();
+            browserManager.getPage().getByRole(AriaRole.OPTION, new Page.GetByRoleOptions().setName(optionText)).click();
+        } catch (Exception e) {
+            System.out.println("Error selecting option from dropdown with label '" + labelName + "': " + e.getMessage());
+        }
     }
 }
